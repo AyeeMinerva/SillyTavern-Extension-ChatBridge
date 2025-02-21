@@ -4,11 +4,11 @@
 
 本插件提供了一个基于 SillyTavern UI Extension 和 WebSocket 的双向通信桥接解决方案，使外部应用程序能够与 SillyTavern 进行实时交互。它包含一个完整的 SillyTavern UI 扩展插件和配套的 Python 示例实现。
 
-由于 SillyTavern 现有的 UI 扩展和服务器插件架构限制（详见 [(https://github.com/SillyTavern/SillyTavern/discussions/3518)]），难以直接将其核心功能暴露为标准 API。本项目通过创新性地采用反向 WebSocket 通信模式，实现了一种优雅的解决方案：以 UI 扩展作为 WebSocket 客户端，外部服务（如 Python）作为服务器，从而实现对 SillyTavern 内部事件和接口的完整访问能力。
+由于 SillyTavern 现有的 UI 扩展和服务器插件架构限制（详见 <https://github.com/SillyTavern/SillyTavern/discussions/3518> ），难以直接将其核心功能暴露为标准 API。本项目通过创新性地采用反向 WebSocket 通信模式，实现了一种优雅的解决方案：以 UI 扩展作为 WebSocket 客户端，外部服务（如 Python）作为服务器，从而实现对 SillyTavern 内部事件和接口的完整访问能力。
 
 This plugin provides a WebSocket-based bidirectional communication bridge solution as a SillyTavern UI Extension, enabling external applications to interact with SillyTavern in real-time. It includes a complete SillyTavern UI extension plugin and accompanying Python implementation example.
 
-Due to architectural limitations in SillyTavern's existing UI extensions and server plugins (see [(https://github.com/SillyTavern/SillyTavern/discussions/3518)]), directly exposing core functionalities as standard APIs is challenging. This project innovatively adopts a reverse WebSocket communication pattern: utilizing the UI extension as a WebSocket client and external services (like Python) as the server, achieving complete access to SillyTavern's internal events and interfaces.
+Due to architectural limitations in SillyTavern's existing UI extensions and server plugins (see <https://github.com/SillyTavern/SillyTavern/discussions/3518> ), directly exposing core functionalities as standard APIs is challenging. This project innovatively adopts a reverse WebSocket communication pattern: utilizing the UI extension as a WebSocket client and external services (like Python) as the server, achieving complete access to SillyTavern's internal events and interfaces.
 
 本项目为将 SillyTavern 作为中间层服务提供了全新思路，开发者可以构建独立的前端应用，同时完整复用 SillyTavern 的对话管理、角色系统等核心功能，实现更灵活的定制化应用场景。
 
