@@ -18,8 +18,6 @@ This project presents a novel approach to utilizing SillyTavern as a middleware 
 
 1. **实时双向通信 (Real-time Bidirectional Communication):**
     * 通过 WebSocket 实现与外部服务的实时双向通信
-    * Implement real-time bidirectional communication with external services via WebSocket
-    * 支持多客户端同时连接
     * Support multiple client connections simultaneously 
     * 自动重连机制
     * Automatic reconnection mechanism
