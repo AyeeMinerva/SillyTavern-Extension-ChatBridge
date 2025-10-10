@@ -1,126 +1,286 @@
-# SillyTavern Extension - ChatBridge 
+# SillyTavern Extension - Multi-Platform Chat Bridge v2.0
 
-一个用于SillyTavern的API桥接扩展，让外部应用（如qq机器人）能够复用SillyTavern的对话功能，像调用api一样在SillyTavern中聊天。
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/ldc861117/SillyTavern-Extension-ChatBridge)
 
-An API bridging extension for SillyTavern that allows external applications to reuse SillyTavern's conversation functionality, enabling chat in SillyTavern as if calling an API.
+[English](#english) | [中文](#中文)
 
-## 简介 / Introduction
-> *我很高兴地宣布我写完了此项目的主要功能，这是最新的更新，和之前的版本完全不同了，重构了基本功能并且实现了向外部开设Openai格式的api，适用于任何openai应用程序调用SillyTavern的强大功能。*
+---
 
-> *I'm pleased to announce that I have completed the main features of this project. This is the latest update, completely different from previous versions. I've restructured the basic functionality and implemented an OpenAI-format API for external use, suitable for any OpenAI application to leverage SillyTavern's powerful capabilities.*
+## English
 
-本项目是一个SillyTavern扩展，通过WebSocket和API转发的方式，实现了将SillyTavern作为中间件服务的功能。它包含以下组件：
+### Overview
 
-This project is a SillyTavern extension that turns SillyTavern into a middleware service through WebSocket and API forwarding. It consists of the following components:
+The **Multi-Platform Chat Bridge** is a next-generation SillyTavern extension that enables seamless integration with multiple chat platforms simultaneously. Users can interact with their favorite characters through Discord, Telegram, WeChat, or any combination thereof, with conversations maintained across all platforms.
 
-- SillyTavern UI Extension: 负责与WebSocket服务器通信
-- ChatBridge_APIHijackForwarder.py: 核心服务器组件，提供WebSocket和API接口
-- 配置文件：用于设置各类连接参数
+### 🚀 What's New in v2.0
 
-- SillyTavern UI Extension: Responsible for communication with the WebSocket server
-- ChatBridge_APIHijackForwarder.py: Core server component, providing WebSocket and API interfaces
-- Configuration files: Used to set various connection parameters
+- ✨ **Multi-Platform Support**: Connect Discord, Telegram, and WeChat simultaneously
+- 🔄 **Cross-Platform Sessions**: Continue conversations across different platforms seamlessly
+- 🎨 **Modern UI**: Beautiful card-based interface for managing platforms
+- 🏗️ **Modular Architecture**: Easily extensible adapter system for adding new platforms
+- 💾 **Session Persistence**: Conversations are automatically saved and restored
+- 🔐 **Secure**: Platform credentials stored safely in extension settings
 
-该扩展可以让任何支持OpenAI API格式的外部应用通过SillyTavern的对话管理系统与LLM进行交互。
+### Key Features
 
-This extension allows any external application that supports the OpenAI API format to interact with LLMs through SillyTavern's conversation management system.
+| Feature | Description |
+|---------|-------------|
+| **Multi-Platform** | Simultaneously support Discord, Telegram, and WeChat |
+| **Session Management** | Bind user-character interactions across platforms |
+| **Cross-Platform Continuity** | Users can switch platforms and continue their conversation |
+| **Modular Design** | Easy to add new platform adapters |
+| **Real-time Sync** | Messages are processed in real-time through WebSocket |
+| **Automatic Cleanup** | Old inactive sessions are cleaned up automatically |
 
-## 使用说明 / Usage Instructions
+### Architecture
 
-### 1. 安装扩展 / Install the Extension
-
-1. 复制项目文件到SillyTavern扩展目录:
-   Copy the project files to the SillyTavern extension directory:
-```bash
-/public/scripts/extensions/third-party/SillyTavern-Extension-ChatBridge/
+```
+User (Discord/Telegram/WeChat)
+        ↓
+Platform Adapter (JavaScript)
+        ↓
+Session Manager
+        ↓
+WebSocket Core
+        ↓
+Bridge Server (Python)
+        ↓
+LLM API
 ```
 
-### 2. 启动服务 / Start the Service
+### Quick Start
 
-0. 你可能需要配置settings.json文件中的各api的base_url和apikey。
+1. **Install Extension**
+   ```bash
+   cd /path/to/SillyTavern/public/scripts/extensions/third-party/
+   git clone https://github.com/ldc861117/SillyTavern-Extension-ChatBridge
+   ```
 
-   You may need to configure the base_url and apikey for various APIs in the settings.json file.
+2. **Install Dependencies**
+   ```bash
+   pip install aiohttp websockets
+   ```
 
-1. 启动Python服务器:
-   Start the Python server:
-```bash
-python ChatBridge_APIHijackForwarder.py
-```
+3. **Configure Settings**
+   ```bash
+   cp settings.json.template settings.json
+   # Edit settings.json with your API keys
+   ```
 
-2. 在SillyTavern扩展设置中配置并连接WebSocket:
-   Configure and connect to WebSocket in SillyTavern extension settings:
-- 设置服务器地址(默认localhost)
-- 设置端口(默认8001)
-- 点击"连接"按钮
+4. **Start Bridge Server**
+   ```bash
+   python ChatBridge_APIHijackForwarder.py
+   ```
 
-- Set the server address (default: localhost)
-- Set the port (default: 8001)
-- Click the "Connect" button
+5. **Connect Platforms**
+   - Open SillyTavern
+   - Go to Extensions → Chat Bridge
+   - Click "Add Platform" and configure your bots
 
-### 3. 外部应用调用 / External Application Calls
+### Platform Setup Guides
 
-配置外部应用的API设置， 如:
-Configure the API settings for external applications, for example:
-```python
-client = OpenAI(
-    api_key="your-user-api-key",
-    base_url="http://localhost:8003/v1"
-)
-```
+- **Discord**: [Discord Setup Guide](MULTIPLATFORM_GUIDE.md#discord-bot-setup)
+- **Telegram**: [Telegram Setup Guide](MULTIPLATFORM_GUIDE.md#telegram-bot-setup)
+- **WeChat**: [WeChat Setup Guide](MULTIPLATFORM_GUIDE.md#wechat-bot-setup)
 
-## 内部逻辑 / Internal Logic
+### Documentation
 
-请求流程:
-Request flow:
-1. 外部应用 → 用户API(8003) → WebSocket(8001)
-2. WebSocket → SillyTavern UI Extension
-3. SillyTavern处理 → ST API(8002)
-4. ST API → LLM API → 获取响应
-5. 响应同时返回给ST和用户API
+- [Complete Setup Guide](MULTIPLATFORM_GUIDE.md)
+- [Architecture Overview](MULTIPLATFORM_GUIDE.md#architecture)
+- [Troubleshooting](MULTIPLATFORM_GUIDE.md#troubleshooting)
+- [Advanced Usage](MULTIPLATFORM_GUIDE.md#advanced-usage)
 
-1. External App → User API(8003) → WebSocket(8001)
-2. WebSocket → SillyTavern UI Extension
-3. SillyTavern processing → ST API(8002)
-4. ST API → LLM API → Get response
-5. Response returned to both ST and User API
+### Use Cases
 
-```mermaid
-sequenceDiagram
-    User->>UserAPI: 1.调用API
-    UserAPI->>WebSocket: 2.转发请求
-    WebSocket->>ST: 3.通知处理
-    ST->>STAPI: 4.调用接口
-    STAPI->>LLM: 5.请求响应
-    LLM-->>STAPI: 6.返回结果
-    STAPI-->>ST: 7a.发送响应
-    LLMAPI-->>UserAPI: 7b.同步发送响应
-    UserAPI-->>User: 8.返回结果
-```
+1. **Personal Assistant Bot**: Deploy your character as a personal assistant across all your messaging platforms
+2. **Community Engagement**: Let community members interact with your character on their preferred platform
+3. **Multi-User Scenarios**: Different users can have independent conversations with the same character
+4. **Cross-Platform Testing**: Test character responses across different platform contexts
 
-### 重要说明 / Important Notes
+### Technical Highlights
 
-- 需要SillyTavern最新版本支持`context.clearChat()`和`context.printMessages()`
-- 所有API采用OpenAI格式
-- 支持流式和非流式响应， **但必须保证ST的设置和应用程序的设置都保持流式/非流式一致**
-- 支持多个LLM API密钥轮询
+- **Session Management**: Smart session binding based on platform + userId + characterId
+- **Message Normalization**: Unified message format across all platforms
+- **Adapter Pattern**: Clean interface for implementing new platform adapters
+- **Event-Driven**: Asynchronous message handling with WebSocket communication
+- **Persistent Storage**: Sessions are saved to extension settings automatically
 
-- Requires the latest version of SillyTavern with support for `context.clearChat()` and `context.printMessages()`
-- All APIs use OpenAI format
-- Supports both streaming and non-streaming responses, **but ensure that ST settings and application settings are consistent for streaming/non-streaming**
-- Supports multiple LLM API keys rotation
+### Supported Platforms
 
-## 依赖要求 / Dependencies
+| Platform | Status | Features |
+|----------|--------|----------|
+| Discord | ✅ Ready | Gateway API, Real-time messages |
+| Telegram | ✅ Ready | Long polling, Rich formatting |
+| WeChat | ✅ Ready | Webhook-based, Official Account API |
+| Slack | 🔜 Coming Soon | - |
+| WhatsApp | 🔜 Coming Soon | - |
 
+### Contributing
+
+We welcome contributions! To add a new platform:
+
+1. Create a new adapter class extending `PlatformAdapter`
+2. Implement required methods: `connect()`, `disconnect()`, `sendMessage()`
+3. Register your adapter in the registry
+4. Add UI configuration in the modal
+5. Submit a pull request
+
+See [MULTIPLATFORM_GUIDE.md#adding-custom-platforms](MULTIPLATFORM_GUIDE.md#adding-custom-platforms) for details.
+
+### Requirements
+
+- SillyTavern (latest version)
 - Python 3.7+
-- SillyTavern最新版本 / Latest version of SillyTavern
-- aiohttp
-- websockets
+- Node.js (for SillyTavern)
+- Platform-specific bot credentials
 
-## 许可证 / License
+### License
 
-本项目采用AGPL-3.0许可证
-This project is licensed under AGPL-3.0
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See [LICENSE](LICENSE) for details.
 
-## 已知问题
+### Support
 
-- 若对UserApi的请求在上一条信息响应未完全结束时，发送另一条请求，有大概率会得到相同的回复。即转发器设计bug使得UserApi对短时间的请求将会给出相同的复制的响应，将在未来的版本修复，此Bug不影响单机串行使用。
+- **Issues**: [GitHub Issues](https://github.com/ldc861117/SillyTavern-Extension-ChatBridge/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ldc861117/SillyTavern-Extension-ChatBridge/discussions)
+- **Documentation**: [Full Guide](MULTIPLATFORM_GUIDE.md)
+
+---
+
+## 中文
+
+### 概述
+
+**多平台聊天桥接器**是新一代 SillyTavern 扩展，可同时无缝集成多个聊天平台。用户可以通过 Discord、Telegram、WeChat 或其任意组合与他们喜爱的角色互动，对话在所有平台间保持连续。
+
+### 🚀 v2.0 新功能
+
+- ✨ **多平台支持**: 同时连接 Discord、Telegram 和 WeChat
+- 🔄 **跨平台会话**: 在不同平台间无缝继续对话
+- 🎨 **现代化 UI**: 精美的卡片式界面管理平台
+- 🏗️ **模块化架构**: 易于扩展的适配器系统，可添加新平台
+- 💾 **会话持久化**: 对话自动保存和恢复
+- 🔐 **安全性**: 平台凭证安全存储在扩展设置中
+
+### 主要特性
+
+| 功能 | 说明 |
+|------|------|
+| **多平台支持** | 同时支持 Discord、Telegram 和 WeChat |
+| **会话管理** | 跨平台绑定用户-角色交互 |
+| **跨平台连续性** | 用户可以切换平台并继续对话 |
+| **模块化设计** | 易于添加新的平台适配器 |
+| **实时同步** | 通过 WebSocket 实时处理消息 |
+| **自动清理** | 自动清理旧的非活动会话 |
+
+### 架构
+
+```
+用户 (Discord/Telegram/WeChat)
+        ↓
+平台适配器 (JavaScript)
+        ↓
+会话管理器
+        ↓
+WebSocket 核心
+        ↓
+桥接服务器 (Python)
+        ↓
+LLM API
+```
+
+### 快速开始
+
+1. **安装扩展**
+   ```bash
+   cd /path/to/SillyTavern/public/scripts/extensions/third-party/
+   git clone https://github.com/ldc861117/SillyTavern-Extension-ChatBridge
+   ```
+
+2. **安装依赖**
+   ```bash
+   pip install aiohttp websockets
+   ```
+
+3. **配置设置**
+   ```bash
+   cp settings.json.template settings.json
+   # 编辑 settings.json 填入你的 API 密钥
+   ```
+
+4. **启动桥接服务器**
+   ```bash
+   python ChatBridge_APIHijackForwarder.py
+   ```
+
+5. **连接平台**
+   - 打开 SillyTavern
+   - 进入 扩展 → Chat Bridge
+   - 点击 "Add Platform" 配置你的机器人
+
+### 平台设置指南
+
+- **Discord**: [Discord 设置指南](MULTIPLATFORM_GUIDE.md#discord-bot-setup)
+- **Telegram**: [Telegram 设置指南](MULTIPLATFORM_GUIDE.md#telegram-bot-setup)
+- **WeChat**: [WeChat 设置指南](MULTIPLATFORM_GUIDE.md#wechat-bot-setup)
+
+### 文档
+
+- [完整设置指南](MULTIPLATFORM_GUIDE.md)
+- [架构概述](MULTIPLATFORM_GUIDE.md#architecture)
+- [故障排除](MULTIPLATFORM_GUIDE.md#troubleshooting)
+- [高级用法](MULTIPLATFORM_GUIDE.md#advanced-usage)
+
+### 使用场景
+
+1. **个人助理机器人**: 在所有消息平台部署你的角色作为个人助理
+2. **社区互动**: 让社区成员在他们偏好的平台上与你的角色互动
+3. **多用户场景**: 不同用户可以与同一角色进行独立对话
+4. **跨平台测试**: 在不同平台环境中测试角色响应
+
+### 技术亮点
+
+- **会话管理**: 基于平台 + 用户ID + 角色ID 的智能会话绑定
+- **消息标准化**: 所有平台统一的消息格式
+- **适配器模式**: 清晰的接口用于实现新的平台适配器
+- **事件驱动**: 通过 WebSocket 通信的异步消息处理
+- **持久化存储**: 会话自动保存到扩展设置
+
+### 支持的平台
+
+| 平台 | 状态 | 功能 |
+|------|------|------|
+| Discord | ✅ 就绪 | Gateway API, 实时消息 |
+| Telegram | ✅ 就绪 | 长轮询, 富文本格式 |
+| WeChat | ✅ 就绪 | Webhook 模式, 公众号 API |
+| Slack | 🔜 即将推出 | - |
+| WhatsApp | 🔜 即将推出 | - |
+
+### 贡献
+
+欢迎贡献！添加新平台的步骤：
+
+1. 创建继承 `PlatformAdapter` 的新适配器类
+2. 实现必需方法：`connect()`, `disconnect()`, `sendMessage()`
+3. 在注册表中注册你的适配器
+4. 在模态框中添加 UI 配置
+5. 提交 Pull Request
+
+详见 [MULTIPLATFORM_GUIDE.md#adding-custom-platforms](MULTIPLATFORM_GUIDE.md#adding-custom-platforms)。
+
+### 系统要求
+
+- SillyTavern (最新版本)
+- Python 3.7+
+- Node.js (用于 SillyTavern)
+- 特定平台的机器人凭证
+
+### 许可证
+
+本项目采用 GNU Affero 通用公共许可证 v3.0 (AGPL-3.0)。详见 [LICENSE](LICENSE)。
+
+### 支持
+
+- **问题反馈**: [GitHub Issues](https://github.com/ldc861117/SillyTavern-Extension-ChatBridge/issues)
+- **讨论区**: [GitHub Discussions](https://github.com/ldc861117/SillyTavern-Extension-ChatBridge/discussions)
+- **文档**: [完整指南](MULTIPLATFORM_GUIDE.md)

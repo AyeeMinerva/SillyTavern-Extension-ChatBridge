@@ -1,23 +1,94 @@
 {
+    "_comment": "Multi-Platform Chat Bridge Configuration File",
+    "_instructions": "Copy this file to settings.json and fill in your actual values",
+    
     "websocket": {
+        "_description": "WebSocket server configuration for SillyTavern extension connection",
         "host": "localhost",
-        "port": 8001
+        "_host_note": "Use 'localhost' for local connections, or '0.0.0.0' to allow external connections",
+        "port": 8001,
+        "_port_note": "Default port for WebSocket server. Change if port 8001 is already in use"
     },
+    
     "llm_api": {
-        "base_url": "base_url",
+        "_description": "Configuration for your LLM API provider (OpenAI-compatible format)",
+        "base_url": "https://api.openai.com/v1",
+        "_base_url_examples": {
+            "OpenAI": "https://api.openai.com/v1",
+            "Google Gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+            "Anthropic (via proxy)": "https://api.anthropic.com/v1",
+            "Custom endpoint": "https://your-custom-api.example.com/v1"
+        },
+        "_base_url_note": "Replace with your LLM API endpoint. Must be OpenAI-compatible",
+        
         "api_keys": [
-            "apikeys_1",
-            "apikeys_2"
-        ]
+            "sk-your-api-key-here",
+            "sk-backup-api-key-optional"
+        ],
+        "_api_keys_note": "Add one or more API keys. Multiple keys will be rotated automatically",
+        "_api_keys_examples": {
+            "OpenAI": "sk-proj-...",
+            "Google Gemini": "AIza...",
+            "Custom": "your-custom-key"
+        }
     },
+    
     "st_api": {
+        "_description": "Internal API for SillyTavern to receive messages from bridge server",
         "host": "localhost",
+        "_host_note": "Should always be 'localhost' for security",
         "port": 8002,
-        "api_key": "st-internal-key"
+        "_port_note": "Port for SillyTavern to connect to. Must match the port SillyTavern uses",
+        "api_key": "st-internal-key-change-this",
+        "_api_key_note": "Internal authentication key. Change this to a secure random string"
     },
+    
     "user_api": {
+        "_description": "External API endpoint for chat platforms and external applications",
         "host": "localhost",
+        "_host_note": "Use 'localhost' for local testing, or '0.0.0.0' for production deployment",
         "port": 8003,
-        "api_key": "user-api-key"
+        "_port_note": "Port for external applications to connect. Default: 8003",
+        "api_key": "user-api-key-change-this",
+        "_api_key_note": "Authentication key for external applications. IMPORTANT: Change this to a secure random string!",
+        "_security_warning": "⚠️ Keep this key secret! Anyone with this key can access your chatbot"
+    },
+    
+    "_setup_instructions": {
+        "step_1": "Copy this file to settings.json in the same directory",
+        "step_2": "Fill in your LLM API provider's base_url",
+        "step_3": "Add your LLM API key(s) to the api_keys array",
+        "step_4": "Change the st_api.api_key to a secure random string",
+        "step_5": "Change the user_api.api_key to a secure random string",
+        "step_6": "Save the file and start the bridge server: python ChatBridge_APIHijackForwarder.py",
+        "step_7": "Connect platforms via the SillyTavern extension UI"
+    },
+    
+    "_example_configurations": {
+        "OpenAI_example": {
+            "llm_api": {
+                "base_url": "https://api.openai.com/v1",
+                "api_keys": ["sk-proj-abc123..."]
+            }
+        },
+        "Google_Gemini_example": {
+            "llm_api": {
+                "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+                "api_keys": ["AIzaSyABC123..."]
+            }
+        },
+        "Custom_API_example": {
+            "llm_api": {
+                "base_url": "https://your-llm-proxy.example.com/v1",
+                "api_keys": ["custom-key-123"]
+            }
+        }
+    },
+    
+    "_troubleshooting": {
+        "connection_refused": "Check that all ports are not blocked by firewall",
+        "invalid_api_key": "Verify your LLM API key is correct and has proper permissions",
+        "timeout_errors": "Check your network connection and API endpoint availability",
+        "see_more": "Visit MULTIPLATFORM_GUIDE.md for detailed troubleshooting"
     }
 }
