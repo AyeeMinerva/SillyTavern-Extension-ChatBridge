@@ -167,7 +167,7 @@ async function handleUserRequest(data) {
  */
 async function handlePlatformMessage(data) {
     try {
-        const { platform, userId, content, metadata } = data;
+        const { platformId, platform, userId, content, metadata } = data;
         const context = getContext();
         
         updateDebugLog(`Platform message from ${platform} user ${userId}: ${content.substring(0, 50)}...`);
@@ -183,11 +183,12 @@ async function handlePlatformMessage(data) {
             content: content
         });
 
-        // Store request for response tracking
+        // Store request for response tracking (use platformId to find adapter later)
         activeBridgeRequest = {
             id: sessionId,
             sessionId: sessionId,
-            platform: platform,
+            platformId: platformId,    // Store the full platform instance ID
+            platform: platform,         // Store platform type for logging
             userId: userId,
             isPlatformMessage: true
         };
@@ -247,7 +248,7 @@ function observeNewMessages() {
                             });
                             
                             // Send response to platform via adapter
-                            const adapter = currentPlatforms.get(activeBridgeRequest.platform);
+                            const adapter = currentPlatforms.get(activeBridgeRequest.platformId);
                             if (adapter) {
                                 adapter.sendMessage(activeBridgeRequest.userId, responseContent)
                                     .then(() => {
@@ -255,7 +256,11 @@ function observeNewMessages() {
                                     })
                                     .catch(error => {
                                         updateDebugLog(`✗ Failed to send response to platform: ${error.message}`);
+                                        console.error('[Platform] Send error:', error);
                                     });
+                            } else {
+                                updateDebugLog(`✗ Could not find adapter for platform ID: ${activeBridgeRequest.platformId}`);
+                                console.error('[Platform] Available platforms:', Array.from(currentPlatforms.keys()));
                             }
                             
                             // Update UI and save
@@ -620,6 +625,7 @@ async function restoreSavedPlatforms() {
             // Set up message handler
             adapter.onMessage(async (userId, message, metadata) => {
                 await handlePlatformMessage({
+                    platformId: id,              // Pass the platform instance ID
                     platform: platformConfig.platform,
                     userId,
                     content: message,
