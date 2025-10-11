@@ -67,6 +67,13 @@ export class TelegramAdapter extends PlatformAdapter {
      */
     async sendMessage(chatId, message, options = {}) {
         try {
+            // Remove Markdown formatting from message to avoid parse errors
+            const plainMessage = message
+                .replace(/\*\*/g, '')  // Remove ** for bold
+                .replace(/\*/g, '')    // Remove * for italic
+                .replace(/`/g, '')     // Remove ` for code
+                .replace(/_/g, '');    // Remove _ for underline
+            
             const response = await fetch(`${this.apiUrl}/sendMessage`, {
                 method: 'POST',
                 headers: {
@@ -74,8 +81,8 @@ export class TelegramAdapter extends PlatformAdapter {
                 },
                 body: JSON.stringify({
                     chat_id: chatId,
-                    text: message,
-                    parse_mode: options.parseMode || 'Markdown',
+                    text: plainMessage,  // Use plain text without formatting
+                    // Don't set parse_mode to avoid parsing errors
                     ...options
                 })
             });
