@@ -19,9 +19,11 @@ const defaultSettings = {
 
 // Initialize extension settings
 if (!extension_settings[extensionName]) {
-    extension_settings[extensionName] = {};
+    extension_settings[extensionName] = Object.assign({}, defaultSettings);
+} else {
+    // Merge defaults with existing settings (existing settings take priority)
+    extension_settings[extensionName] = Object.assign({}, defaultSettings, extension_settings[extensionName]);
 }
-Object.assign(extension_settings[extensionName], defaultSettings, extension_settings[extensionName]);
 
 // Core state
 let ws;
@@ -241,6 +243,13 @@ function observeNewMessages() {
                         const session = sessionManager.getSession(sessionId);
                         
                         if (session) {
+                            // Store request info before it gets cleared (for async callbacks)
+                            const requestInfo = {
+                                platform: activeBridgeRequest.platform,
+                                platformId: activeBridgeRequest.platformId,
+                                userId: activeBridgeRequest.userId
+                            };
+                            
                             // Add assistant response to session history
                             sessionManager.addMessage(sessionId, {
                                 role: 'assistant',
@@ -248,18 +257,18 @@ function observeNewMessages() {
                             });
                             
                             // Send response to platform via adapter
-                            const adapter = currentPlatforms.get(activeBridgeRequest.platformId);
+                            const adapter = currentPlatforms.get(requestInfo.platformId);
                             if (adapter) {
-                                adapter.sendMessage(activeBridgeRequest.userId, responseContent)
+                                adapter.sendMessage(requestInfo.userId, responseContent)
                                     .then(() => {
-                                        updateDebugLog(`✓ Sent response to ${activeBridgeRequest.platform} user ${activeBridgeRequest.userId}`);
+                                        updateDebugLog(`✓ Sent response to ${requestInfo.platform} user ${requestInfo.userId}`);
                                     })
                                     .catch(error => {
                                         updateDebugLog(`✗ Failed to send response to platform: ${error.message}`);
                                         console.error('[Platform] Send error:', error);
                                     });
                             } else {
-                                updateDebugLog(`✗ Could not find adapter for platform ID: ${activeBridgeRequest.platformId}`);
+                                updateDebugLog(`✗ Could not find adapter for platform ID: ${requestInfo.platformId}`);
                                 console.error('[Platform] Available platforms:', Array.from(currentPlatforms.keys()));
                             }
                             
