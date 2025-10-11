@@ -108,28 +108,36 @@ export class CharacterManager {
                 throw new Error(`Character index not found for ${characterId}`);
             }
             
-            // Use SillyTavern's selectCharacterById function if available
-            // This is the proper way to switch characters in SillyTavern
+            // Method 1: Try SillyTavern's selectCharacterById function
             if (typeof window.selectCharacterById === 'function') {
                 await window.selectCharacterById(String(charIndex));
-            } else if (typeof window.setCharacterId === 'function') {
-                // Alternative method
+                console.log(`[CharacterManager] Used selectCharacterById for ${character.name}`);
+            } 
+            // Method 2: Try setCharacterId global function
+            else if (typeof window.setCharacterId === 'function') {
                 await window.setCharacterId(charIndex);
-            } else {
-                // Manual method - directly set the character
-                // This mimics what SillyTavern does internally
-                const chatFile = character.chat || `${character.name} - ${Date.now()}`;
-                
-                // Set character name globally
-                if (window.name2) {
-                    window.name2 = character.name;
+                console.log(`[CharacterManager] Used setCharacterId for ${character.name}`);
+            }
+            // Method 3: Simulate clicking the character in the UI
+            else {
+                // Find the character's button/element in the UI and click it
+                const charButtons = document.querySelectorAll('.character_select');
+                if (charButtons && charButtons[charIndex]) {
+                    charButtons[charIndex].click();
+                    console.log(`[CharacterManager] Clicked character button for ${character.name}`);
+                } else {
+                    // Method 4: Direct context manipulation
+                    context.characterId = charIndex;
+                    context.name2 = character.name;
+                    
+                    // Trigger character change through jQuery event
+                    const event = new CustomEvent('character_selected', { 
+                        detail: { characterId: charIndex } 
+                    });
+                    window.dispatchEvent(event);
+                    
+                    console.log(`[CharacterManager] Manually set character ${character.name} via context`);
                 }
-                
-                // Trigger character change event
-                context.characterId = charIndex;
-                context.setCharacterId(charIndex);
-                
-                console.log(`[CharacterManager] Manually activated character ${character.name}`);
             }
             
             return {
