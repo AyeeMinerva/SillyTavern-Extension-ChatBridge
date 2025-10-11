@@ -83,6 +83,67 @@ export class CharacterManager {
     }
     
     /**
+     * Actually switch to a character in SillyTavern
+     * This loads the character and starts a new chat session
+     * @param {string} characterId - Character ID (avatar filename)
+     * @returns {Promise<Object>} - Character info and chat details
+     */
+    async activateCharacter(characterId) {
+        try {
+            const context = getContext();
+            const character = await this.getCharacterById(characterId);
+            
+            if (!character) {
+                throw new Error(`Character ${characterId} not found`);
+            }
+            
+            console.log(`[CharacterManager] Activating character: ${character.name}`);
+            
+            // Find character index in SillyTavern's character list
+            const charIndex = context.characters.findIndex(c => 
+                (c.avatar || c.name) === characterId
+            );
+            
+            if (charIndex === -1) {
+                throw new Error(`Character index not found for ${characterId}`);
+            }
+            
+            // Use SillyTavern's selectCharacterById function if available
+            // This is the proper way to switch characters in SillyTavern
+            if (typeof window.selectCharacterById === 'function') {
+                await window.selectCharacterById(String(charIndex));
+            } else if (typeof window.setCharacterId === 'function') {
+                // Alternative method
+                await window.setCharacterId(charIndex);
+            } else {
+                // Manual method - directly set the character
+                // This mimics what SillyTavern does internally
+                const chatFile = character.chat || `${character.name} - ${Date.now()}`;
+                
+                // Set character name globally
+                if (window.name2) {
+                    window.name2 = character.name;
+                }
+                
+                // Trigger character change event
+                context.characterId = charIndex;
+                context.setCharacterId(charIndex);
+                
+                console.log(`[CharacterManager] Manually activated character ${character.name}`);
+            }
+            
+            return {
+                character,
+                chatId: context.getCurrentChatId(),
+                success: true
+            };
+        } catch (error) {
+            console.error('[CharacterManager] Failed to activate character:', error);
+            throw error;
+        }
+    }
+    
+    /**
      * Get user's current character preference
      * @param {string} platform - Platform name (telegram, discord, etc.)
      * @param {string} userId - Platform-specific user ID

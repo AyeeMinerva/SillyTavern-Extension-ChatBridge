@@ -217,6 +217,15 @@ async function handlePlatformMessage(data) {
         }
         
         updateDebugLog(`Using character: ${character.name} (${character.id}) for ${platform} user ${userId}`);
+        
+        // Activate the character in SillyTavern
+        try {
+            await characterManager.activateCharacter(character.id);
+            updateDebugLog(`✓ Activated character ${character.name} in SillyTavern`);
+        } catch (error) {
+            updateDebugLog(`⚠ Warning: Failed to activate character: ${error.message}`);
+            // Continue anyway - the chat might still work with the current character
+        }
 
         // Get or create session with this character
         const sessionId = sessionManager.getOrCreateSession(platform, userId, character.id);

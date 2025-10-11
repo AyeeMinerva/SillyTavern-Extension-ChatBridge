@@ -120,8 +120,18 @@ export class CommandParser {
             };
         }
         
-        // Switch to character
+        // Save user preference
         this.characterManager.setUserCharacterPreference(platform, userId, character.id);
+        
+        // Actually activate the character in SillyTavern
+        try {
+            await this.characterManager.activateCharacter(character.id);
+        } catch (error) {
+            console.error('[CommandParser] Failed to activate character:', error);
+            return {
+                response: `⚠️ Switched preference to ${character.name}, but failed to activate in SillyTavern.\n\nError: ${error.message}`
+            };
+        }
         
         // Create or get session for this character
         const sessionId = this.sessionManager.getOrCreateSession(
@@ -130,10 +140,19 @@ export class CommandParser {
             character.id
         );
         
+        // Send character's first message if available
+        let response = `✅ Switched to character: ${character.name}\n\n`;
+        if (character.firstMessage) {
+            response += `${character.firstMessage}`;
+        } else {
+            response += `You can now chat with ${character.name}!`;
+        }
+        
         return {
-            response: `✅ Switched to character: **${character.name}**\n\nYou can now chat with ${character.name}!`,
+            response,
             characterId: character.id,
-            sessionId: sessionId
+            sessionId: sessionId,
+            sendFirstMessage: true  // Flag to indicate this is an initial greeting
         };
     }
     
