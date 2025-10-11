@@ -81,23 +81,25 @@ export class CommandParser {
             const characters = await this.characterManager.getAvailableCharacters();
             const currentCharId = this.characterManager.getUserCharacterPreference(platform, userId);
             
-            let response = '📋 **Available Characters:**\n\n';
+            let response = '📋 Available Characters:\n\n';
             
             if (characters.length === 0) {
                 response += '❌ No characters found in SillyTavern.\n\n';
                 response += 'Please create characters in SillyTavern first.';
             } else {
                 characters.forEach((char, index) => {
-                    const current = char.id === currentCharId ? '✅ ' : '';
-                    response += `${current}${index + 1}. **${char.name}**\n`;
+                    const current = char.id === currentCharId ? '✅ ' : '   ';
+                    // Show both number and character name clearly
+                    response += `${current}${index + 1}. ${char.name}\n`;
                     if (char.description) {
-                        response += `   ${char.description.substring(0, 60)}${char.description.length > 60 ? '...' : ''}\n`;
+                        response += `      ${char.description.substring(0, 50)}${char.description.length > 50 ? '...' : ''}\n`;
                     }
                 });
                 
-                response += '\n💡 **Usage:**\n';
-                response += '• Type `/char [name]` to switch character\n';
-                response += '• Example: `/char Alice`';
+                response += '\n💡 How to use:\n';
+                response += '• Type: /char [character name]\n';
+                response += `• Example: /char ${characters[0].name}\n`;
+                response += '\n📝 Tip: Character names are case-insensitive';
             }
             
             return { response };
