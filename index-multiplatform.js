@@ -2,6 +2,8 @@ import { extension_settings, getContext } from "../../../extensions.js";
 import { saveSettingsDebounced } from "../../../../script.js";
 import { chat } from "../../../../script.js";
 import { SessionManager } from "./src/core/SessionManager.js";
+import { CharacterManager } from "./src/core/CharacterManager.js";
+import { CommandParser } from "./src/core/CommandParser.js";
 import { PlatformAdapterRegistry } from "./src/core/PlatformAdapter.js";
 import { DiscordAdapter } from "./src/adapters/DiscordAdapter.js";
 import { TelegramAdapter } from "./src/adapters/TelegramAdapter.js";
@@ -14,7 +16,8 @@ const defaultSettings = {
     wsUrl: "localhost",
     autoConnect: false,
     platforms: [], // Array of platform configurations
-    sessions: null // Session persistence data
+    sessions: null, // Session persistence data
+    userCharacterPreferences: {} // User character preferences: { 'platform_userId': 'characterId' }
 };
 
 // Initialize extension settings
@@ -28,6 +31,8 @@ if (!extension_settings[extensionName]) {
 // Core state
 let ws;
 let sessionManager;
+let characterManager;
+let commandParser;
 let adapterRegistry;
 let currentPlatforms = new Map(); // platformId -> adapter instance
 let activeBridgeRequest = null; // Track active request from forwarder
@@ -174,9 +179,47 @@ async function handlePlatformMessage(data) {
         
         updateDebugLog(`Platform message from ${platform} user ${userId}: ${content.substring(0, 50)}...`);
 
-        // Get or create session
-        const characterId = context.characterId || 'default';
-        const sessionId = sessionManager.getOrCreateSession(platform, userId, characterId);
+        // Check if this is a slash command
+        const commandResult = await commandParser.parseCommand(content, {
+            platform,
+            userId
+        });
+        
+        if (commandResult.isCommand) {
+            // Send command response directly to the user
+            const adapter = currentPlatforms.get(platformId);
+            if (adapter) {
+                await adapter.sendMessage(userId, commandResult.response);
+                updateDebugLog(`✓ Sent command response to ${platform} user ${userId}`);
+            }
+            
+            // If command updated preferences, save them
+            const currentPreferences = characterManager.exportPreferences();
+            extension_settings[extensionName].userCharacterPreferences = currentPreferences;
+            saveSettingsDebounced();
+            
+            return; // Don't process command as a normal message
+        }
+
+        // Normal message processing: Get or auto-select character for this user
+        const character = await characterManager.getOrAutoSelectCharacter(platform, userId);
+        
+        if (!character) {
+            // No characters available
+            const adapter = currentPlatforms.get(platformId);
+            if (adapter) {
+                await adapter.sendMessage(userId, 
+                    "❌ No characters available in SillyTavern.\n\n" +
+                    "Please create characters in SillyTavern first, then type /char to see them.");
+                updateDebugLog(`✗ No characters available for ${platform} user ${userId}`);
+            }
+            return;
+        }
+        
+        updateDebugLog(`Using character: ${character.name} (${character.id}) for ${platform} user ${userId}`);
+
+        // Get or create session with this character
+        const sessionId = sessionManager.getOrCreateSession(platform, userId, character.id);
         const session = sessionManager.getSession(sessionId);
         
         // Add user message to session
@@ -677,7 +720,13 @@ async function restoreSavedPlatforms() {
 jQuery(async () => {
     // Initialize managers
     sessionManager = new SessionManager();
+    characterManager = new CharacterManager();
+    commandParser = new CommandParser(characterManager, sessionManager);
     adapterRegistry = new PlatformAdapterRegistry();
+    
+    // Load user character preferences from settings
+    const savedPreferences = extension_settings[extensionName].userCharacterPreferences || {};
+    characterManager.loadPreferences(savedPreferences);
     
     // Register platform adapters
     adapterRegistry.registerAdapterClass('discord', DiscordAdapter);
