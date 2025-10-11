@@ -131,7 +131,7 @@ index-multiplatform.js (Main Extension)
 ### User Preference
 
 ```javascript
-// Map key: "telegram_855870885"
+// Map index: "telegram_855870885"
 // Map value: "char_alice_001"
 
 userPreferences = Map {
@@ -147,7 +147,7 @@ userPreferences = Map {
   id: "session_1234_abc",
   platform: "telegram",
   userId: "855870885",
-  characterId: "char_alice_001",  // ← KEY ADDITION
+  characterId: "char_alice_001",  // ← NEW FIELD ADDITION
   messageHistory: [
     { role: "user", content: "Hi", timestamp: 1234 },
     { role: "assistant", content: "Hello!", timestamp: 1235 }
@@ -161,7 +161,7 @@ userPreferences = Map {
 ### Session Index
 
 ```javascript
-// Map key: "telegram:855870885:char_alice_001"
+// Map index: "telegram:855870885:char_alice_001"
 // Map value: "session_1234_abc"
 
 sessionIndex = Map {
