@@ -442,6 +442,7 @@ async function connectPlatform() {
         // Set up message handler
         adapter.onMessage(async (userId, message, metadata) => {
             await handlePlatformMessage({
+                platformId: id,            // Pass platform ID for adapter lookup
                 platform: config.platform,
                 userId,
                 content: message,
@@ -619,13 +620,21 @@ async function restoreSavedPlatforms() {
         try {
             updateDebugLog(`Reconnecting to ${platformConfig.platform}...`);
             
-            // Create adapter
-            const { id, adapter } = adapterRegistry.createAdapter(platformConfig.platform, platformConfig);
+            // Use the saved ID instead of generating a new one
+            const savedId = platformConfig.id;
+            
+            // Create adapter (it will generate an ID, but we'll use the saved one)
+            const { id: generatedId, adapter } = adapterRegistry.createAdapter(platformConfig.platform, platformConfig);
+            
+            // Use the saved ID to maintain consistency
+            const id = savedId || generatedId;
+            
+            updateDebugLog(`Using platform ID: ${id}`);
             
             // Set up message handler
             adapter.onMessage(async (userId, message, metadata) => {
                 await handlePlatformMessage({
-                    platformId: id,              // Pass the platform instance ID
+                    platformId: id,              // Pass the saved platform instance ID
                     platform: platformConfig.platform,
                     userId,
                     content: message,
