@@ -7,7 +7,7 @@
  * - Provide character information
  */
 
-import { getContext } from "../../../../extensions.js";
+import { getContext } from "../../../../../extensions.js";
 
 export class CharacterManager {
     constructor() {
