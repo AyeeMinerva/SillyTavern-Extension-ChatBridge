@@ -183,31 +183,37 @@ async function handlePlatformMessage(data) {
             content: content
         });
 
-        // Convert session history to OpenAI format and send to ST
-        const messages = session.messageHistory;
-        const openAIMessages = messages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-        }));
+        // Store request for response tracking
+        activeBridgeRequest = {
+            id: sessionId,
+            sessionId: sessionId,
+            platform: platform,
+            userId: userId,
+            isPlatformMessage: true
+        };
 
-        // Send request through WebSocket
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'user_request',
-                id: Date.now().toString(),
-                sessionId: sessionId,
-                content: {
-                    messages: openAIMessages,
-                    stream: false
-                }
-            }));
-        }
+        // Convert session history to SillyTavern format
+        const messages = session.messageHistory;
+        const stMessages = messages.map(msg => convertOpenAIToSTMessage(msg));
+
+        // Update SillyTavern chat directly
+        chat.splice(0, chat.length, ...stMessages);
+        context.clearChat();
+        context.printMessages();
+        context.eventSource.emit(context.eventTypes.CHAT_CHANGED, context.getCurrentChatId());
+        
+        updateDebugLog(`Updated chat with ${messages.length} messages for session ${sessionId}`);
 
         // Update sessions UI
         updateSessionsUI();
         
         // Save session data
         saveSessionData();
+
+        // Trigger AI response generation
+        $('#send_but').click();
+        updateDebugLog(`Triggered response generation for ${platform} user ${userId}`);
+        
     } catch (error) {
         updateDebugLog(`Error handling platform message: ${error.message}`);
         console.error(error);
@@ -215,7 +221,7 @@ async function handlePlatformMessage(data) {
 }
 
 /**
- * Observe new assistant messages and send them back to forwarder
+ * Observe new assistant messages and send them back to forwarder or platform
  */
 function observeNewMessages() {
     const observer = new MutationObserver((mutations) => {
@@ -227,25 +233,57 @@ function observeNewMessages() {
                 if (activeBridgeRequest && lastMessage && !lastMessage.is_user) {
                     const responseContent = lastMessage.mes;
 
-                    const response = {
-                        type: 'st_response',
-                        id: activeBridgeRequest.id,
-                        content: {
-                            // Construct a response that matches what the Python forwarder expects
-                            choices: [{
-                                message: {
-                                    role: 'assistant',
-                                    content: responseContent
-                                }
-                            }]
+                    // Check if this is a platform message (Telegram, Discord, etc.)
+                    if (activeBridgeRequest.isPlatformMessage) {
+                        // Send response back to platform adapter
+                        const sessionId = activeBridgeRequest.sessionId;
+                        const session = sessionManager.getSession(sessionId);
+                        
+                        if (session) {
+                            // Add assistant response to session history
+                            sessionManager.addMessage(sessionId, {
+                                role: 'assistant',
+                                content: responseContent
+                            });
+                            
+                            // Send response to platform via adapter
+                            const adapter = currentPlatforms.get(activeBridgeRequest.platform);
+                            if (adapter) {
+                                adapter.sendMessage(activeBridgeRequest.userId, responseContent)
+                                    .then(() => {
+                                        updateDebugLog(`✓ Sent response to ${activeBridgeRequest.platform} user ${activeBridgeRequest.userId}`);
+                                    })
+                                    .catch(error => {
+                                        updateDebugLog(`✗ Failed to send response to platform: ${error.message}`);
+                                    });
+                            }
+                            
+                            // Update UI and save
+                            updateSessionsUI();
+                            saveSessionData();
                         }
-                    };
-
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify(response));
-                        updateDebugLog(`✓ Sent response for request ${activeBridgeRequest.id}`);
                     } else {
-                        updateDebugLog(`✗ Cannot send response: WebSocket not connected`);
+                        // Send response back to forwarder (for User API requests)
+                        const response = {
+                            type: 'st_response',
+                            id: activeBridgeRequest.id,
+                            content: {
+                                // Construct a response that matches what the Python forwarder expects
+                                choices: [{
+                                    message: {
+                                        role: 'assistant',
+                                        content: responseContent
+                                    }
+                                }]
+                            }
+                        };
+
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify(response));
+                            updateDebugLog(`✓ Sent response for request ${activeBridgeRequest.id}`);
+                        } else {
+                            updateDebugLog(`✗ Cannot send response: WebSocket not connected`);
+                        }
                     }
 
                     // Clear the active request
@@ -560,6 +598,56 @@ function loadSessionData() {
 }
 
 /**
+ * Restore saved platform connections
+ */
+async function restoreSavedPlatforms() {
+    const savedPlatforms = extension_settings[extensionName].platforms || [];
+    
+    if (savedPlatforms.length === 0) {
+        updateDebugLog('No saved platforms to restore');
+        return;
+    }
+    
+    updateDebugLog(`Restoring ${savedPlatforms.length} saved platform(s)...`);
+    
+    for (const platformConfig of savedPlatforms) {
+        try {
+            updateDebugLog(`Reconnecting to ${platformConfig.platform}...`);
+            
+            // Create adapter
+            const { id, adapter } = adapterRegistry.createAdapter(platformConfig.platform, platformConfig);
+            
+            // Set up message handler
+            adapter.onMessage(async (userId, message, metadata) => {
+                await handlePlatformMessage({
+                    platform: platformConfig.platform,
+                    userId,
+                    content: message,
+                    metadata
+                });
+            });
+
+            // Set up status handler
+            adapter.onStatusChange((isConnected) => {
+                updatePlatformCard(id, isConnected);
+            });
+
+            // Connect adapter
+            await adapter.connect();
+            
+            currentPlatforms.set(id, adapter);
+            
+            updateDebugLog(`✓ Successfully reconnected to ${platformConfig.platform}`);
+            
+        } catch (error) {
+            updateDebugLog(`✗ Failed to restore ${platformConfig.platform}: ${error.message}`);
+        }
+    }
+    
+    updatePlatformsUI();
+}
+
+/**
  * Initialize extension
  */
 jQuery(async () => {
@@ -583,6 +671,9 @@ jQuery(async () => {
     
     // Load session data
     loadSessionData();
+    
+    // Restore saved platform connections
+    await restoreSavedPlatforms();
     
     // Bind WebSocket controls
     $('#ws_connect').on('click', setupWebSocket);
