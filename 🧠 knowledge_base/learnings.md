@@ -1,0 +1,5 @@
+### Learning Entry: 2025-10-11
+**Phase**: `[Link to ⚙️ work_phases/2025-10-11_forwarder-timeout-investigation/📝_phase_log.md]`
+**Observation**: A `TimeoutError` occurred in an inter-process communication workflow between a Python backend and a JavaScript frontend extension. The frontend initiated a new, untracked request via UI simulation (`$('#send_but').click()`) instead of using the established WebSocket channel for the response.
+**Pattern/Principle**: Relying on UI simulation and race conditions for inter-process communication is fundamentally unreliable. A robust system must use a closed-loop protocol where requests and responses are explicitly correlated with a unique identifier (`request_id`).
+**Actionable Guidance**: **Avoid** designing communication protocols that depend on simulating user interactions. **Do** implement direct, two-way communication channels (like WebSockets) that maintain the context of a request through its entire lifecycle using a unique ID.

@@ -1,11 +1,12 @@
 {
-    "display_name": "Chat Bridge Extension",
+    "display_name": "Multi-Platform Chat Bridge",
     "loading_order": 10,
     "requires": [],
     "optional": [],
-    "js": "index.js",
+    "js": "index-multiplatform.js",
     "css": "style.css",
-    "author": "YourName",
-    "version": "1.0.0",
-    "homePage": "https://github.com/yourusername/ChatBridgeExtension"
+    "author": "ldc861117",
+    "version": "2.0.0",
+    "homePage": "https://github.com/ldc861117/SillyTavern-Extension-ChatBridge",
+    "description": "Connect SillyTavern to multiple chat platforms (Discord, Telegram, WeChat) with cross-platform session continuity"
 }

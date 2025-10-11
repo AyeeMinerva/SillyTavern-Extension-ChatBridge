@@ -1,0 +1,403 @@
+<div id="ChatBridgeExtension_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Multi-Platform Chat Bridge</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            
+            <!-- Core Server Connection -->
+            <div class="ChatBridgeExtension_server_section">
+                <h3>Core Bridge Server</h3>
+                <div class="ChatBridgeExtension_server_settings">
+                    <div class="ChatBridgeExtension_url_input">
+                        <label>Server Address:</label>
+                        <input type="text" id="ws_url" value="localhost" />
+                    </div>
+                    <div class="ChatBridgeExtension_port_input">
+                        <label>Port:</label>
+                        <input type="number" id="ws_port" value="8001" />
+                    </div>
+                </div>
+                <div class="ChatBridgeExtension_controls">
+                    <input type="button" id="ws_connect" value="Connect" class="menu_button" />
+                    <input type="button" id="ws_disconnect" value="Disconnect" class="menu_button" disabled />
+                    <label>
+                        <input type="checkbox" id="ws_auto_connect"/>
+                        Auto-reconnect
+                    </label>
+                </div>
+                <div class="ChatBridgeExtension_status">
+                    <label>Status:</label>
+                    <span id="ws_status" style="color: red; font-weight: bold;">Disconnected</span>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0;" />
+
+            <!-- Platform Management -->
+            <div class="ChatBridgeExtension_platforms_section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>Connected Platforms</h3>
+                    <input type="button" id="add_platform_btn" value="+ Add Platform" class="menu_button" />
+                </div>
+
+                <!-- Platform Cards Container -->
+                <div id="platform_cards_container" class="platform-cards-grid">
+                    <!-- Platform cards will be dynamically inserted here -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="platforms_empty_state" style="text-align: center; padding: 30px; color: var(--SmartThemeQuoteColor);">
+                    <p>No platforms connected yet.</p>
+                    <p>Click "Add Platform" to connect Discord, Telegram, or WeChat.</p>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0;" />
+
+            <!-- Session Management -->
+            <div class="ChatBridgeExtension_sessions_section">
+                <h3>Active Sessions</h3>
+                <div id="active_sessions_list" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Sessions will be dynamically listed here -->
+                </div>
+                <div id="sessions_empty_state" style="text-align: center; padding: 20px; color: var(--SmartThemeQuoteColor);">
+                    <p>No active sessions</p>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0;" />
+
+            <!-- Debug Log -->
+            <div class="ChatBridgeExtension_debug">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label><strong>Debug Log</strong></label>
+                    <input type="button" id="clear_debug_log" value="Clear Log" class="menu_button" />
+                </div>
+                <textarea id="debug_log" rows="15" 
+                    style="width: 100%; margin-top: 10px; background-color: var(--black70a); color: var(--SmartThemeBodyColor); border: 1px solid var(--SmartThemeBorderColor); font-family: monospace; font-size: 12px;" 
+                    readonly></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Platform Modal -->
+<div id="platform_modal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 id="modal_title">Add Platform</h3>
+            <span class="modal-close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <!-- Platform Selection -->
+            <div id="platform_selection" class="platform-selection-grid">
+                <div class="platform-option" data-platform="discord">
+                    <div class="platform-icon">💬</div>
+                    <div class="platform-name">Discord</div>
+                </div>
+                <div class="platform-option" data-platform="telegram">
+                    <div class="platform-icon">✈️</div>
+                    <div class="platform-name">Telegram</div>
+                </div>
+                <div class="platform-option" data-platform="wechat">
+                    <div class="platform-icon">💬</div>
+                    <div class="platform-name">WeChat</div>
+                </div>
+            </div>
+
+            <!-- Platform Configuration Forms -->
+            <!-- Discord Config -->
+            <div id="discord_config" class="platform-config" style="display: none;">
+                <h4>Discord Bot Configuration</h4>
+                <div class="config-field">
+                    <label>Bot Token:</label>
+                    <input type="password" id="discord_token" placeholder="Your Discord bot token" style="width: 100%;" />
+                    <small>
+                        <a href="https://discord.com/developers/applications" target="_blank">Get your bot token here</a>
+                    </small>
+                </div>
+            </div>
+
+            <!-- Telegram Config -->
+            <div id="telegram_config" class="platform-config" style="display: none;">
+                <h4>Telegram Bot Configuration</h4>
+                <div class="config-field">
+                    <label>Bot Token:</label>
+                    <input type="password" id="telegram_token" placeholder="Your Telegram bot token" style="width: 100%;" />
+                    <small>
+                        <a href="https://t.me/BotFather" target="_blank">Get your bot token from @BotFather</a>
+                    </small>
+                </div>
+            </div>
+
+            <!-- WeChat Config -->
+            <div id="wechat_config" class="platform-config" style="display: none;">
+                <h4>WeChat Bot Configuration</h4>
+                <div class="config-field">
+                    <label>App ID:</label>
+                    <input type="text" id="wechat_appid" placeholder="WeChat App ID" style="width: 100%;" />
+                </div>
+                <div class="config-field">
+                    <label>App Secret:</label>
+                    <input type="password" id="wechat_appsecret" placeholder="WeChat App Secret" style="width: 100%;" />
+                </div>
+                <div class="config-field">
+                    <label>Token:</label>
+                    <input type="text" id="wechat_token" placeholder="WeChat Token" style="width: 100%;" />
+                </div>
+                <small>
+                    <a href="https://mp.weixin.qq.com/" target="_blank">Configure in WeChat Official Account Platform</a>
+                </small>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="modal_cancel" class="menu_button">Cancel</button>
+            <button id="modal_back" class="menu_button" style="display: none;">Back</button>
+            <button id="modal_connect" class="menu_button" style="display: none;">Connect</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .platform-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .platform-card {
+        background: var(--black50a);
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 8px;
+        padding: 15px;
+        transition: all 0.2s;
+    }
+
+    .platform-card:hover {
+        border-color: var(--SmartThemeQuoteColor);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .platform-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .platform-card-title {
+        font-size: 18px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .platform-card-status {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .platform-card-status.connected {
+        background: #28a745;
+        color: white;
+    }
+
+    .platform-card-status.disconnected {
+        background: #dc3545;
+        color: white;
+    }
+
+    .platform-card-status.error {
+        background: #ffc107;
+        color: black;
+    }
+
+    .platform-card-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .platform-card-actions button {
+        flex: 1;
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    .platform-selection-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+
+    .platform-option {
+        text-align: center;
+        padding: 30px 20px;
+        border: 2px solid var(--SmartThemeBorderColor);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .platform-option:hover {
+        border-color: var(--SmartThemeQuoteColor);
+        background: var(--black50a);
+    }
+
+    .platform-option.selected {
+        border-color: #28a745;
+        background: var(--black50a);
+    }
+
+    .platform-icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+    }
+
+    .platform-name {
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .platform-config {
+        animation: fadeIn 0.3s;
+    }
+
+    .config-field {
+        margin-bottom: 15px;
+    }
+
+    .config-field label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    .config-field input {
+        padding: 8px;
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 4px;
+        background: var(--black70a);
+        color: var(--SmartThemeBodyColor);
+    }
+
+    .config-field small {
+        display: block;
+        margin-top: 5px;
+        color: var(--SmartThemeQuoteColor);
+    }
+
+    .modal {
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background-color: var(--black70a);
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 8px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: slideDown 0.3s;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid var(--SmartThemeBorderColor);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+    }
+
+    .modal-close {
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        color: var(--SmartThemeQuoteColor);
+    }
+
+    .modal-close:hover {
+        color: #dc3545;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 20px;
+        border-top: 1px solid var(--SmartThemeBorderColor);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .session-item {
+        background: var(--black50a);
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .session-info {
+        flex: 1;
+    }
+
+    .session-platform {
+        display: inline-block;
+        padding: 2px 8px;
+        background: var(--SmartThemeQuoteColor);
+        border-radius: 4px;
+        font-size: 11px;
+        margin-right: 8px;
+    }
+
+    .session-character {
+        font-weight: bold;
+    }
+
+    .session-user {
+        color: var(--SmartThemeQuoteColor);
+        font-size: 13px;
+    }
+</style>

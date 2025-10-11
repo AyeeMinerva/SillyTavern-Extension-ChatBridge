@@ -1,0 +1,2 @@
+在本项目中，通过研究和编码，我们需要形成良好的sillytavern前端的消息获取和转发能力，以便在本地运行的sillytavern可以被其他聊天工具（discord, telegram, wechat，imessage等等系统作为bot身份与真实用户互动。）
+项目的来源是互联网上的一个公开的插件。我们已经进行了一些优化。

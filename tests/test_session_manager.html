@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SessionManager Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>SessionManager Unit Tests</h1>
+    
+    <div class="test-section">
+        <h2>Test Suite</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script type="module">
+        // Import SessionManager
+        import { SessionManager } from '../src/core/SessionManager.js';
+
+        let sessionManager;
+        const resultsDiv = document.getElementById('results');
+
+        function log(message, isPass) {
+            const div = document.createElement('div');
+            div.className = `test-result ${isPass ? 'test-pass' : 'test-fail'}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        function logData(title, data) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(section);
+        }
+
+        function assert(condition, message) {
+            if (condition) {
+                log(`✓ PASS: ${message}`, true);
+                return true;
+            } else {
+                log(`✗ FAIL: ${message}`, false);
+                return false;
+            }
+        }
+
+        window.clearResults = function() {
+            resultsDiv.innerHTML = '';
+        };
+
+        window.runAllTests = async function() {
+            clearResults();
+            sessionManager = new SessionManager();
+            
+            let passCount = 0;
+            let failCount = 0;
+
+            // Test 1: Create new session
+            log('Test 1: Create new session', true);
+            const sessionId1 = sessionManager.getOrCreateSession('discord', 'user123', 'char456');
+            if (assert(sessionId1, 'Session ID should be created')) passCount++; else failCount++;
+            if (assert(sessionManager.getSession(sessionId1), 'Session should exist')) passCount++; else failCount++;
+
+            // Test 2: Get existing session
+            log('Test 2: Get existing session', true);
+            const sessionId2 = sessionManager.getOrCreateSession('discord', 'user123', 'char456');
+            if (assert(sessionId1 === sessionId2, 'Should return same session ID for same user/character')) passCount++; else failCount++;
+
+            // Test 3: Different platform creates different session
+            log('Test 3: Different platform creates different session', true);
+            const sessionId3 = sessionManager.getOrCreateSession('telegram', 'user123', 'char456');
+            if (assert(sessionId1 !== sessionId3, 'Different platform should create different session')) passCount++; else failCount++;
+
+            // Test 4: Add messages to session
+            log('Test 4: Add messages to session', true);
+            sessionManager.addMessage(sessionId1, { role: 'user', content: 'Hello!' });
+            sessionManager.addMessage(sessionId1, { role: 'assistant', content: 'Hi there!' });
+            const history = sessionManager.getMessageHistory(sessionId1);
+            if (assert(history.length === 2, 'Session should have 2 messages')) passCount++; else failCount++;
+            if (assert(history[0].content === 'Hello!', 'First message content should match')) passCount++; else failCount++;
+
+            // Test 5: Update metadata
+            log('Test 5: Update metadata', true);
+            sessionManager.updateMetadata(sessionId1, { lastSeen: Date.now(), mood: 'happy' });
+            const session = sessionManager.getSession(sessionId1);
+            if (assert(session.metadata.mood === 'happy', 'Metadata should be updated')) passCount++; else failCount++;
+
+            // Test 6: Get all active sessions
+            log('Test 6: Get all active sessions', true);
+            const activeSessions = sessionManager.getActiveSessions();
+            if (assert(activeSessions.length === 2, 'Should have 2 active sessions')) passCount++; else failCount++;
+
+            // Test 7: Export and import sessions
+            log('Test 7: Export and import sessions', true);
+            const exported = sessionManager.exportSessions();
+            const newManager = new SessionManager();
+            newManager.importSessions(exported);
+            const importedSessions = newManager.getActiveSessions();
+            if (assert(importedSessions.length === 2, 'Imported sessions should match exported')) passCount++; else failCount++;
+
+            // Test 8: Delete session
+            log('Test 8: Delete session', true);
+            sessionManager.deleteSession(sessionId3);
+            const deletedSession = sessionManager.getSession(sessionId3);
+            if (assert(!deletedSession, 'Deleted session should not exist')) passCount++; else failCount++;
+            if (assert(sessionManager.getActiveSessions().length === 1, 'Should have 1 active session after deletion')) passCount++; else failCount++;
+
+            // Test 9: Session cleanup
+            log('Test 9: Session cleanup (simulated old session)', true);
+            const oldSession = sessionManager.getSession(sessionId1);
+            oldSession.lastActivity = Date.now() - (25 * 60 * 60 * 1000); // 25 hours ago
+            const cleaned = sessionManager.cleanupInactiveSessions(24 * 60 * 60 * 1000);
+            if (assert(cleaned === 1, 'Should clean up 1 old session')) passCount++; else failCount++;
+            if (assert(sessionManager.getActiveSessions().length === 0, 'Should have 0 active sessions after cleanup')) passCount++; else failCount++;
+
+            // Display results
+            logData('Final Session Data', sessionManager.exportSessions());
+            
+            const summary = document.createElement('div');
+            summary.className = 'test-section';
+            summary.innerHTML = `
+                <h2>Test Summary</h2>
+                <p><strong>Passed:</strong> ${passCount} / ${passCount + failCount}</p>
+                <p><strong>Failed:</strong> ${failCount} / ${passCount + failCount}</p>
+                <p><strong>Success Rate:</strong> ${((passCount / (passCount + failCount)) * 100).toFixed(1)}%</p>
+            `;
+            resultsDiv.insertBefore(summary, resultsDiv.firstChild);
+        };
+    </script>
+</body>
+</html>

@@ -15,6 +15,7 @@ if (!extension_settings[extensionName]) {
 Object.assign(extension_settings[extensionName], defaultSettings);
 
 let ws;
+let activeBridgeRequest = null;
 
 function updateDebugLog(message) {
     const debugLog = $('#debug_log');
@@ -75,21 +76,23 @@ function setupWebSocket() {
         try {
             const data = JSON.parse(event.data);
             updateDebugLog(`收到消息: ${JSON.stringify(data)}`);
-
             if (data.type === 'user_request') {
                 updateDebugLog('收到用户请求');
                 if (data.content?.messages) {
+                    activeBridgeRequest = {
+                        id: data.id,
+                        content: data.content
+                    };
                     const context = getContext();
                     const newChat = data.content.messages
                         .filter(msg => msg.role === 'user' || msg.role === 'assistant')
                         .map(msg => convertOpenAIToSTMessage(msg));
-
                     chat.splice(0, chat.length, ...newChat);
                     context.clearChat();
                     context.printMessages();
                     context.eventSource.emit(context.eventTypes.CHAT_CHANGED, context.getCurrentChatId());
                     updateDebugLog(`已更新聊天内容，共${context.chat.length}条消息`);
-                    $('#send_but').click();
+                    sendTextareaMessage();
                 } else {
                     updateDebugLog('错误：消息格式不正确');
                 }
@@ -109,6 +112,49 @@ function setupWebSocket() {
         updateWSStatus(false);
         updateDebugLog(`WebSocket错误: ${error}`);
     };
+}
+
+function observeNewMessages() {
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.addedNodes.length > 0) {
+                const lastMessage = chat[chat.length - 1];
+                
+                // Check if there's an active request and the last message is from the assistant
+                if (activeBridgeRequest && lastMessage && !lastMessage.is_user) {
+                    const responseContent = lastMessage.mes;
+
+                    const response = {
+                        type: 'st_response',
+                        id: activeBridgeRequest.id,
+                        content: {
+                            // Construct a response that matches what the Python forwarder expects
+                            choices: [{
+                                message: {
+                                    role: 'assistant',
+                                    content: responseContent
+                                }
+                            }]
+                        }
+                    };
+
+                    ws.send(JSON.stringify(response));
+                    updateDebugLog(`Sent response for request ${activeBridgeRequest.id}`);
+
+                    // Clear the active request
+                    activeBridgeRequest = null;
+                }
+            }
+        }
+    });
+
+    const chatElement = document.querySelector('#chat');
+    if (chatElement) {
+        observer.observe(chatElement, { childList: true, subtree: true });
+        updateDebugLog('Message observer initialized');
+    } else {
+        updateDebugLog('Warning: Could not find #chat element to observe');
+    }
 }
 
 function updateConnectionButtons(connected) {
@@ -177,6 +223,7 @@ jQuery(async () => {
         saveSettingsDebounced();
     });
     setupWebSocket();
+    observeNewMessages();
 
     //自动尝试连接
     $('#ws_auto_connect').prop('checked', extension_settings[extensionName].autoConnect);

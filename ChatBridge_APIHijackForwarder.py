@@ -109,20 +109,16 @@ class ChatBridgeForwarder:
         self.ws_clients.add(websocket)
         try:
             async for message in websocket:
-                try:
-                    data = json.loads(message)
-                    logger.info(f"收到WebSocket消息: {data}")
-                    
-                    # 处理ST的响应
-                    if data.get('type') == 'st_response':
-                        request_id = data.get('id')
-                        if request_id in self.response_futures:
-                            future = self.response_futures[request_id]
-                            if not future.done():
-                                future.set_result(data.get('content'))
-                                
-                except json.JSONDecodeError:
-                    logger.error("无效的WebSocket消息格式")
+                data = json.loads(message)
+                logger.info(f"Received WebSocket message: {data}")
+                
+                if data.get('type') == 'st_response':
+                    request_id = data.get('id')
+                    if request_id in self.response_futures:
+                        future = self.response_futures[request_id]
+                        if not future.done():
+                            future.set_result(data.get('content'))
+                            logger.info(f"Resolved future for request_id: {request_id}")
         finally:
             self.ws_clients.remove(websocket)
 
@@ -267,93 +263,25 @@ class ChatBridgeForwarder:
             return web.Response(status=500, text=str(e))
 
     async def handle_chat_completions(self, request: web.Request) -> web.Response:
+        # This function is now a simple proxy.
+        # The hijacking logic has been removed.
         try:
             request_data = await request.json()
-            is_stream = request_data.get('stream', False)
-            logger.info(f"收到chat completion请求: PATH={request.path}, STREAM={is_stream}")
-
-            # 找到活跃的用户请求
-            active_user_futures = {
-                rid: future for rid, future in self.response_futures.items()
-                if not getattr(future, 'done', lambda: True)()
-            }
-            
-            if active_user_futures:
-                logger.info(f"找到 {len(active_user_futures)} 个活跃的用户请求")
-            else:
-                logger.warning("没有找到活跃的用户请求")
-
             api_key = self.key_rotator.get_next_key()
             headers = {
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json'
             }
             target_url = f"{self.settings['llm_api']['base_url']}/chat/completions"
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(target_url, json=request_data, headers=headers) as llm_response:
-                    if llm_response.headers.get('content-type') == 'text/event-stream':
-                        logger.info("处理流式响应")
-                        st_response = web.StreamResponse(
-                            status=llm_response.status,
-                            headers={'Content-Type': 'text/event-stream'}
-                        )
-                        await st_response.prepare(request)
-
-                        active_user_queues = {
-                            rid: queue for rid, queue in self.response_futures.items() 
-                            if isinstance(queue, asyncio.Queue)
-                        }
-
-                        async for chunk in llm_response.content:
-                            if chunk:
-                                chunk_str = chunk.decode()
-                                logger.debug(f"收到数据块: {chunk_str[:100]}...")
-                                
-                                # 发送到ST
-                                await st_response.write(chunk)
-                                
-                                # 转发到用户队列
-                                if active_user_queues:
-                                    for queue_id, queue in active_user_queues.items():
-                                        try:
-                                            await queue.put(chunk_str)
-                                            logger.debug(f"转发数据块到用户队列 {queue_id}")
-                                        except Exception as e:
-                                            logger.error(f"转发到用户队列失败 {queue_id}: {e}")
-
-                        # 发送结束标记
-                        if active_user_queues:
-                            for queue_id, queue in active_user_queues.items():
-                                try:
-                                    await queue.put('[DONE]')
-                                    logger.info(f"发送结束标记到用户队列 {queue_id}")
-                                except Exception as e:
-                                    logger.error(f"发送结束标记失败 {queue_id}: {e}")
-
-                        return st_response
-
-                    else:
-                        logger.info("处理非流式响应")
-                        response_data = await llm_response.json()
-                        logger.info(f"收到LLM响应: {str(response_data)[:200]}...")
-
-                        # 转发到所有等待的用户请求
-                        futures_updated = False
-                        for request_id, future in list(active_user_futures.items()):
-                            try:
-                                if isinstance(future, asyncio.Future) and not future.done():
-                                    future.set_result(response_data)
-                                    logger.info(f"成功设置用户请求结果: ID={request_id}")
-                                    futures_updated = True
-                            except Exception as e:
-                                logger.error(f"设置用户请求结果失败 {request_id}: {e}")
-
-                        if not futures_updated:
-                            logger.warning("没有成功更新任何用户请求的结果")
-
-                        return web.json_response(response_data, status=llm_response.status)
-
+                    response_data = await llm_response.read()
+                    return web.Response(
+                        body=response_data,
+                        status=llm_response.status,
+                        headers=llm_response.headers
+                    )
         except Exception as e:
             error_msg = f"处理聊天完成请求失败: {str(e)}"
             logger.error(error_msg, exc_info=True)
