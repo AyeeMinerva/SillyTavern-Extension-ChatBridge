@@ -148,9 +148,12 @@ function observeNewMessages() {
         }
     });
 
-    const chatElement = document.querySelector('#chat-container'); // Or the correct selector for the chat container
+    const chatElement = document.querySelector('#chat');
     if (chatElement) {
-        observer.observe(chatElement, { childList: true });
+        observer.observe(chatElement, { childList: true, subtree: true });
+        updateDebugLog('Message observer initialized');
+    } else {
+        updateDebugLog('Warning: Could not find #chat element to observe');
     }
 }
 
