@@ -164,4 +164,137 @@ export class SessionManager {
     _generateSessionId() {
         return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
+    
+    /**
+     * Get all sessions for a specific user and character
+     * @param {string} platform - Platform identifier
+     * @param {string} userId - Platform-specific user ID
+     * @param {string} characterId - Character ID
+     * @returns {Array} Array of session objects
+     */
+    getUserSessions(platform, userId, characterId) {
+        const sessions = [];
+        const sessionKey = this._createSessionKey(platform, userId, characterId);
+        
+        for (const [sid, session] of this.sessions.entries()) {
+            if (session.platform === platform && 
+                session.userId === userId && 
+                session.characterId === characterId) {
+                sessions.push({
+                    ...session,
+                    sessionId: sid,
+                    isActive: this.sessionIndex.get(sessionKey) === sid
+                });
+            }
+        }
+        
+        // Sort by last activity (most recent first)
+        sessions.sort((a, b) => b.lastActivity - a.lastActivity);
+        
+        return sessions;
+    }
+    
+    /**
+     * Create a new session for a user-character pair
+     * (Even if one already exists, useful for starting fresh conversations)
+     * @returns {string} New session ID
+     */
+    createNewSession(platform, userId, characterId) {
+        const sessionId = this._generateSessionId();
+        const session = {
+            id: sessionId,
+            platform,
+            userId,
+            characterId,
+            messageHistory: [],
+            metadata: {},
+            createdAt: Date.now(),
+            lastActivity: Date.now()
+        };
+        
+        this.sessions.set(sessionId, session);
+        
+        // Update index to point to this new session
+        const sessionKey = this._createSessionKey(platform, userId, characterId);
+        this.sessionIndex.set(sessionKey, sessionId);
+        
+        return sessionId;
+    }
+    
+    /**
+     * Switch to a different session
+     * @param {string} sessionId - Target session ID
+     */
+    switchToSession(sessionId) {
+        const session = this.sessions.get(sessionId);
+        if (!session) {
+            throw new Error(`Session not found: ${sessionId}`);
+        }
+        
+        // Update index to point to this session
+        const sessionKey = this._createSessionKey(
+            session.platform,
+            session.userId,
+            session.characterId
+        );
+        this.sessionIndex.set(sessionKey, sessionId);
+        
+        // Update last activity
+        session.lastActivity = Date.now();
+    }
+    
+    /**
+     * Get the most recent session for a user across all characters
+     * @param {string} platform - Platform identifier
+     * @param {string} userId - Platform-specific user ID
+     * @returns {Object|null} Most recent session or null
+     */
+    getMostRecentUserSession(platform, userId) {
+        let mostRecent = null;
+        let latestActivity = 0;
+        
+        for (const session of this.sessions.values()) {
+            if (session.platform === platform && 
+                session.userId === userId &&
+                session.lastActivity > latestActivity) {
+                mostRecent = session;
+                latestActivity = session.lastActivity;
+            }
+        }
+        
+        return mostRecent;
+    }
+    
+    /**
+     * Get all sessions for a user across all characters
+     * @param {string} platform - Platform identifier
+     * @param {string} userId - Platform-specific user ID
+     * @returns {Array} Array of session objects grouped by character
+     */
+    getAllUserSessions(platform, userId) {
+        const sessions = [];
+        
+        for (const [sessionId, session] of this.sessions.entries()) {
+            if (session.platform === platform && session.userId === userId) {
+                sessions.push({
+                    ...session,
+                    sessionId
+                });
+            }
+        }
+        
+        // Sort by last activity (most recent first)
+        sessions.sort((a, b) => b.lastActivity - a.lastActivity);
+        
+        return sessions;
+    }
+    
+    /**
+     * Check if a user has any sessions with a specific character
+     * @returns {boolean}
+     */
+    hasUserCharacterSession(platform, userId, characterId) {
+        const sessionKey = this._createSessionKey(platform, userId, characterId);
+        return this.sessionIndex.has(sessionKey);
+    }
 }
