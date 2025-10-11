@@ -120,6 +120,10 @@ export class CommandParser {
             };
         }
         
+        // Check if user is already talking to this character
+        const currentCharId = this.characterManager.getUserCharacterPreference(platform, userId);
+        const isSameCharacter = (currentCharId === character.id);
+        
         // Save user preference
         this.characterManager.setUserCharacterPreference(platform, userId, character.id);
         
@@ -139,20 +143,34 @@ export class CommandParser {
             userId, 
             character.id
         );
+        const session = this.sessionManager.getSession(sessionId);
         
-        // Send character's first message if available
-        let response = `✅ Switched to character: ${character.name}\n\n`;
-        if (character.firstMessage) {
-            response += `${character.firstMessage}`;
+        // Determine response based on whether this is a new character switch
+        let response;
+        
+        if (isSameCharacter && session.messageHistory.length > 0) {
+            // Same character, existing conversation - just confirm
+            const lastMessage = session.messageHistory[session.messageHistory.length - 1];
+            const isLastFromUser = lastMessage.role === 'user';
+            
+            response = `✅ Already chatting with: ${character.name}\n\n`;
+            response += `💬 Current session: ${session.messageHistory.length} messages\n`;
+            response += `📝 Tip: Use /session new to start a fresh conversation`;
         } else {
-            response += `You can now chat with ${character.name}!`;
+            // New character or first time - send greeting with first message
+            response = `✅ Switched to character: ${character.name}\n\n`;
+            if (character.firstMessage) {
+                response += `${character.firstMessage}`;
+            } else {
+                response += `You can now chat with ${character.name}!`;
+            }
         }
         
         return {
             response,
             characterId: character.id,
             sessionId: sessionId,
-            sendFirstMessage: true  // Flag to indicate this is an initial greeting
+            sendFirstMessage: !isSameCharacter  // Only send first message if switching to different character
         };
     }
     
@@ -245,9 +263,19 @@ export class CommandParser {
             const character = await this.characterManager.getCharacterById(currentCharId);
             const newSessionId = this.sessionManager.createNewSession(platform, userId, currentCharId);
             
+            // Send character's first message to start the new conversation
+            let response = `✅ Created new session with ${character?.name || 'Unknown'}\n\n`;
+            if (character && character.firstMessage) {
+                response += `${character.firstMessage}`;
+            } else {
+                response += `Start chatting with ${character?.name || 'your character'}!`;
+            }
+            
             return {
-                response: `✅ Created new session with **${character?.name || 'Unknown'}**\n\nSession ID: ${newSessionId}`,
-                sessionId: newSessionId
+                response,
+                sessionId: newSessionId,
+                characterId: currentCharId,
+                sendFirstMessage: true  // Flag to indicate this is a new conversation
             };
         }
         
