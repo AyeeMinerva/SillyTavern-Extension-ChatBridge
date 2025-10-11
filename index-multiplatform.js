@@ -28,6 +28,7 @@ let ws;
 let sessionManager;
 let adapterRegistry;
 let currentPlatforms = new Map(); // platformId -> adapter instance
+let activeBridgeRequest = null; // Track active request from forwarder
 
 /**
  * Debug logging utility
@@ -133,6 +134,12 @@ async function handleUserRequest(data) {
         updateDebugLog('Processing user request from platform');
         
         if (data.content?.messages) {
+            // Store the request ID so we can respond later
+            activeBridgeRequest = {
+                id: data.id,
+                content: data.content
+            };
+            
             const context = getContext();
             const newChat = data.content.messages
                 .filter(msg => msg.role === 'user' || msg.role === 'assistant')
@@ -144,7 +151,7 @@ async function handleUserRequest(data) {
             context.printMessages();
             context.eventSource.emit(context.eventTypes.CHAT_CHANGED, context.getCurrentChatId());
             
-            updateDebugLog(`Updated chat with ${context.chat.length} messages`);
+            updateDebugLog(`Updated chat with ${context.chat.length} messages. Request ID: ${data.id}`);
             
             // Trigger message generation
             $('#send_but').click();
@@ -204,6 +211,57 @@ async function handlePlatformMessage(data) {
     } catch (error) {
         updateDebugLog(`Error handling platform message: ${error.message}`);
         console.error(error);
+    }
+}
+
+/**
+ * Observe new assistant messages and send them back to forwarder
+ */
+function observeNewMessages() {
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.addedNodes.length > 0) {
+                const lastMessage = chat[chat.length - 1];
+                
+                // Check if there's an active request and the last message is from the assistant
+                if (activeBridgeRequest && lastMessage && !lastMessage.is_user) {
+                    const responseContent = lastMessage.mes;
+
+                    const response = {
+                        type: 'st_response',
+                        id: activeBridgeRequest.id,
+                        content: {
+                            // Construct a response that matches what the Python forwarder expects
+                            choices: [{
+                                message: {
+                                    role: 'assistant',
+                                    content: responseContent
+                                }
+                            }]
+                        }
+                    };
+
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify(response));
+                        updateDebugLog(`✓ Sent response for request ${activeBridgeRequest.id}`);
+                    } else {
+                        updateDebugLog(`✗ Cannot send response: WebSocket not connected`);
+                    }
+
+                    // Clear the active request
+                    activeBridgeRequest = null;
+                }
+            }
+        }
+    });
+
+    // Observe the chat container for new messages
+    const chatElement = document.querySelector('#chat');
+    if (chatElement) {
+        observer.observe(chatElement, { childList: true, subtree: true });
+        updateDebugLog('Message observer initialized');
+    } else {
+        updateDebugLog('Warning: Could not find chat element to observe');
     }
 }
 
@@ -585,6 +643,9 @@ jQuery(async () => {
     // Update UIs
     updatePlatformsUI();
     updateSessionsUI();
+    
+    // Initialize message observer to capture SillyTavern responses
+    observeNewMessages();
     
     updateDebugLog('Multi-Platform Chat Bridge extension initialized');
     
